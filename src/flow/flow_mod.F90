@@ -6,7 +6,7 @@ MODULE flow_mod
     USE flowstat_mod
     USE timeintegration_mod
     USE wernerwengle_mod
-    USE setboundarybuffers_mod
+    USE lesmodel_mod, ONLY: ilesmodel
 
     IMPLICIT NONE(type, external)
 
@@ -21,6 +21,7 @@ CONTAINS
         USE lesmodel_mod
         USE pressuresolver_mod
         USE itinfo_mod, ONLY: init_itinfo
+        USE boussinesqterm_mod, ONLY: init_boussinesqterm
 
         ! Local variables
         TYPE(field_t), POINTER :: u, v, w
@@ -38,6 +39,7 @@ CONTAINS
         CALL init_wernerwengle()
         CALL init_lesmodel()
         CALL init_pressuresolver()
+        CALL init_boussinesqterm()
         CALL init_itinfo(dcont)
 
         ! Need to call this here - cannot be in flowcore because that
@@ -74,6 +76,7 @@ CONTAINS
         USE itinfo_mod, ONLY: finish_itinfo
         USE gc_flowstencils_mod
         USE ib_mod
+        USE boussinesqterm_mod, ONLY: finish_boussinesqterm
 
         IF (.NOT. has_flow) RETURN
 
@@ -87,6 +90,7 @@ CONTAINS
         END SELECT
 
         CALL finish_itinfo
+        CALL finish_boussinesqterm()
         CALL finish_pressuresolver()
         CALL finish_lesmodel()
         CALL finish_wernerwengle()
@@ -98,6 +102,7 @@ CONTAINS
         USE bound_flow_mod
         USE core_mod
         USE ib_mod
+        USE setboundarybuffers_mod, ONLY: setboundarybuffers
 
         TYPE(field_t), POINTER :: u_f, v_f, w_f, p_f
         REAL(realk), POINTER, CONTIGUOUS :: u(:), v(:), w(:), p(:)
