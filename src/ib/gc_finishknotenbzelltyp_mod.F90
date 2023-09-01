@@ -35,7 +35,9 @@ CONTAINS
         INTEGER(intk) :: ilevel
 
         ! Sanity check
-        IF (SIZE(icells) /= ngrid) CALL errr(__FILE__, __LINE__)
+        IF (SIZE(icells) /= ngrid) THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
         icells = 0
 
         DO ilevel = minlevel, maxlevel

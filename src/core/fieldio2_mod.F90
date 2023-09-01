@@ -386,7 +386,9 @@ CONTAINS
                 CALL h5aget_name_f(attr_id, nchar, attrname, hdferr)
                 ! Returns the length of the attribute name if successful
                 IF (hdferr < 0) CALL errr(__FILE__, __LINE__)
-                IF (hdferr > nchar_name) CALL errr(__FILE__, __LINE__)
+                IF (hdferr > nchar_name) THEN
+                    CALL errr(__FILE__, __LINE__)
+                END IF
 
                 SELECT CASE(TRIM(attrname))
                 CASE ("MINLEVEL", "MAXLEVEL", "ISTAG", "JSTAG", "KSTAG", &
@@ -394,14 +396,20 @@ CONTAINS
                     CONTINUE
                 CASE DEFAULT
                     CALL h5aget_type_f(attr_id, type_id, hdferr)
-                    IF (hdferr /= 0) CALL errr(__FILE__, __LINE__)
+                    IF (hdferr /= 0) THEN
+                        CALL errr(__FILE__, __LINE__)
+                    END IF
 
                     CALL h5tget_class_f(type_id, type_class, hdferr)
-                    IF (hdferr < 0) CALL errr(__FILE__, __LINE__)
+                    IF (hdferr < 0) THEN
+                        CALL errr(__FILE__, __LINE__)
+                    END IF
 
                     IF (type_class == H5T_INTEGER_F) THEN
                         n_iattrs = n_iattrs + 1
-                        IF (n_iattrs > nattr_max) CALL errr(__FILE__, __LINE__)
+                        IF (n_iattrs > nattr_max) THEN
+                            CALL errr(__FILE__, __LINE__)
+                        END IF
                         CALL read_attr(intattr, attr_id)
 
                         iattrs(n_iattrs)%name = &
@@ -409,7 +417,9 @@ CONTAINS
                         iattrs(n_iattrs)%value = intattr
                     ELSE IF (type_class == H5T_FLOAT_F) THEN
                         n_rattrs = n_rattrs + 1
-                        IF (n_rattrs > nattr_max) CALL errr(__FILE__, __LINE__)
+                        IF (n_rattrs > nattr_max) THEN
+                            CALL errr(__FILE__, __LINE__)
+                        END IF
                         CALL read_attr(realattr, attr_id)
 
                         rattrs(n_rattrs)%name = &
@@ -418,11 +428,15 @@ CONTAINS
                     END IF
 
                     CALL h5tclose_f(type_id, hdferr)
-                    IF (hdferr /= 0) CALL errr(__FILE__, __LINE__)
+                    IF (hdferr /= 0) THEN
+                        CALL errr(__FILE__, __LINE__)
+                    END IF
                 END SELECT
 
                 CALL h5aclose_f(attr_id, hdferr)
-                IF (hdferr /= 0) CALL errr(__FILE__, __LINE__)
+                IF (hdferr /= 0) THEN
+                    CALL errr(__FILE__, __LINE__)
+                END IF
             END DO
         END IF
 

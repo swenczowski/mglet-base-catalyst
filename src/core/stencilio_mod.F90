@@ -915,7 +915,9 @@ CONTAINS
                         IF (count(1) > 0) THEN
                             CALL h5sselect_hyperslab_f(filespace, &
                                 H5S_SELECT_OR_F, offset, count, ierr)
-                            IF (ierr /= 0) CALL errr(__FILE__, __LINE__)
+                            IF (ierr /= 0) THEN
+                                CALL errr(__FILE__, __LINE__)
+                            END IF
                         END IF
 
                         offset = 0

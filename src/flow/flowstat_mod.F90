@@ -132,7 +132,9 @@ CONTAINS
         ! Local variables
         ! nobe...
 
-        IF (name /= "laplaceP_SQR_AVG") CALL errr(__FILE__, __LINE__)
+        IF (name /= "laplaceP_SQR_AVG") THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
 
         CALL comp_laplacep_avg(field, "laplaceP_AVG", dt)
         field%arr = field%arr(:)**2

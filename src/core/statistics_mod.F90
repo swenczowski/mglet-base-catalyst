@@ -189,7 +189,9 @@ CONTAINS
         ! Sanity checks
         IF (nchar < 5) CALL errr(__FILE__, __LINE__)
         IF (nchar > nchar_name) CALL errr(__FILE__, __LINE__)
-        IF (name(nchar-3:nchar) /= "_AVG") CALL errr(__FILE__, __LINE__)
+        IF (name(nchar-3:nchar) /= "_AVG") THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
 
         base_name = name(1:nchar-4)
         CALL get_field(infield, base_name)
@@ -219,9 +221,14 @@ CONTAINS
         ! Sanity checks
         IF (nchar < 6) CALL errr(__FILE__, __LINE__)
         IF (nchar > nchar_name) CALL errr(__FILE__, __LINE__)
-        IF (name(nchar-3:nchar) /= "_AVG") CALL errr(__FILE__, __LINE__)
-        IF (MOD(nchar-4, 2) /= 0) CALL errr(__FILE__, __LINE__)
 
+        IF (name(nchar-3:nchar) /= "_AVG") THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
+
+        IF (MOD(nchar-4, 2) /= 0) THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
         base_name = name(1:(nchar-4)/2)
         CALL get_field(infield, base_name)
 

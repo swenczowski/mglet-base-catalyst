@@ -43,7 +43,9 @@ CONTAINS
         IF (.NOT. PRESENT(f2) .OR. .NOT. PRESENT(f3)) THEN
             CALL errr(__FILE__, __LINE__)
         END IF
-        IF (.NOT. PRESENT(timeph)) CALL errr(__FILE__, __LINE__)
+        IF (.NOT. PRESENT(timeph)) THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
 
         ! Fetch pointers
         CALL f1%buffers%get_buffer(ubuf, igrid, iface)
@@ -112,7 +114,9 @@ CONTAINS
         IF (.NOT. PRESENT(f2) .OR. .NOT. PRESENT(f3)) THEN
             CALL errr(__FILE__, __LINE__)
         END IF
-        IF (.NOT. PRESENT(timeph)) CALL errr(__FILE__, __LINE__)
+        IF (.NOT. PRESENT(timeph)) THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
 
         ! Fetch pointers
         CALL f1%buffers%get_buffer(ubuf, igrid, iface)
@@ -181,7 +185,9 @@ CONTAINS
         IF (.NOT. PRESENT(f2) .OR. .NOT. PRESENT(f3)) THEN
             CALL errr(__FILE__, __LINE__)
         END IF
-        IF (.NOT. PRESENT(timeph)) CALL errr(__FILE__, __LINE__)
+        IF (.NOT. PRESENT(timeph)) THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
 
         ! Fetch pointers
         CALL f1%buffers%get_buffer(ubuf, igrid, iface)

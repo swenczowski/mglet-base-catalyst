@@ -199,7 +199,9 @@ CONTAINS
         IF (PRESENT(get_len)) THEN
             this%get_len => get_len
         END IF
-        IF (.NOT. ASSOCIATED(this%get_len)) CALL errr(__FILE__, __LINE__)
+        IF (.NOT. ASSOCIATED(this%get_len)) THEN
+            CALL errr(__FILE__, __LINE__)
+        END IF
 
         ! Set pointers
         ALLOCATE(this%ptr(nmygrids))

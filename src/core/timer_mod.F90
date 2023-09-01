@@ -114,8 +114,8 @@ CONTAINS
             stackpos = stackpos + 1
             stack(stackpos) = idx
         ELSE
-            CALL err_abort(255, "Timer"//CHAR(idx)//"not stopped", __FILE__, &
-                __LINE__)
+            CALL err_abort(255, "Timer"//CHAR(idx)//"not stopped", &
+                 __FILE__, __LINE__)
         END IF
     END SUBROUTINE start_timer
 
