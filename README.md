@@ -136,9 +136,11 @@ bindings
 2. Create a separate `build` directory in the source code root and enter that
 directory: `mkdir build && cd build`
 
-3. Run CMake: `cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..`
+3. Run CMake (e.g. hyd39):
+       `module load mglet`
+       `FC=gfortran-9 CC=gcc-9 CXX=g++-9 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..`
 
-4. Compile: `make`
+5. Compile: `make`
 
 
 License and trademarks
