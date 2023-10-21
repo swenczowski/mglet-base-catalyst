@@ -51,6 +51,21 @@ if (NOT ENVPREFIX STREQUAL "")
     add_compile_definitions(_MGLET_ENVPREFIX_="${ENVPREFIX}")
 endif ()
 
+# CMake build options
+option(THREADS "Compile MGLET with OpenMP thread parallelism" ON)
+if ( THREADS )
+    find_package( OpenMP )
+    if ( OPENMP_FOUND )
+        add_compile_definitions(_MGLET_OPENMP_=1)
+        message( STATUS "Compiling MGLET with OpenMP thread parallelism" )
+    else ( OPENMP_FOUND )
+        message( WARNING "MGLET with threads requested but OpenMP not found" )
+        message( STATUS "Compiling MGLET without OpenMP threads" )
+    endif( OPENMP_FOUND )
+else ( THREADS )
+    message( STATUS "Compiling MGLET without OpenMP threads" )
+endif ( THREADS )
+
 
 # All fortran modules are placed here
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
