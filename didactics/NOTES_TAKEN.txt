@@ -1,0 +1,13 @@
+! NOTE (A):  (omp_module_variable.F90)
+! - Changes to module variables are propagated between threads. A thread does not have its "own instance" of the module
+! - Only "!$omp parallel private( alpha )" gives the thread its own version of the module variable
+
+! NOTE (B):   (omp_module_function.F90)
+! - module funcitons that operate on buffers etc. that belong to the module need to be declared "critical"
+! - "critical" makes sure that only one thread is running through this section at one time
+! - necessary for connect, ftoc, ctof with complex structure inside the module
+
+! NOTE (C):   (omp_module_function.F90)
+! - intrinsics like "CALL omp_set_num_threads(5)" require compilation with -fopenmp (#ifdef woud be necessary)
+! - flag -fopenmp-simd does not activate all options of -fopenmp and does not include threads
+! - simple pragmas are just ignored if not compiled correspondingly with -fopenmp
