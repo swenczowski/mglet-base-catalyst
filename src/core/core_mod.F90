@@ -57,7 +57,7 @@ CONTAINS
         ! Local variables
         INTEGER(int32) :: ierr
 
-        CALL MPI_Init()
+        CALL MPI_Init()  ! (!!!)
         CALL h5open_f(ierr)
 
         CALL init_comms()

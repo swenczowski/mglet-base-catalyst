@@ -46,9 +46,14 @@ CONTAINS
         ! field on the fine grid
         REAL(realk), TARGET, INTENT(inout) :: fc_p(:)
 
+!$omp critical
+
         CALL ctof_begin(ff_p, fc_p, noflevel(ilevel), &
             igrdoflevel(1, ilevel))
         CALL ctof_end()
+
+!$omp end critical        
+
     END SUBROUTINE ctof
 
 

@@ -226,16 +226,23 @@ CONTAINS
             IF (myid == 0) WRITE(*, '()')
         END IF
 
+!$omp parallel num_threads(2)        
         timeintegration: DO itstep = 1, mtstep
             ! Global RK loop for tightly coupled quantities like flow and
             ! scalar transport
             rkloop: DO irk = 1, rkscheme%nrk
+!$omp single
                 CALL timeintegrate_scalar(itstep, ittot, timeph, dt, irk, &
-                    rkscheme)
+                rkscheme)
+!$omp end single
+!$omp single
                 CALL timeintegrate_flow(itstep, ittot, timeph, dt, irk, &
                     rkscheme)
+!$omp end single
+!$omp barrier
             END DO rkloop
 
+!$omp master            
             ! Timeintegrate, _before_ time is globally incremented
             CALL timeintegrate_plugins(itstep, ittot, timeph, dt)
 
@@ -305,7 +312,11 @@ CONTAINS
                     CALL adjust_timestep(cflmax)
                 END IF
             END IF
+!$omp end master
+!$omp barrier
+
         END DO timeintegration
+!$omp parallel
 
         CALL stop_timer(2)
     END SUBROUTINE timeloop

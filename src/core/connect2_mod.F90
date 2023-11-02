@@ -232,6 +232,8 @@ CONTAINS
         INTEGER(intk), OPTIONAL, INTENT(in) :: forward
         CHARACTER(len=1), OPTIONAL, INTENT(in) :: ityp
 
+!$omp critical
+
         CALL start_timer(850)
 
         ! Check if the connection information has been created
@@ -394,6 +396,9 @@ CONTAINS
         NULLIFY(p3)
 
         CALL stop_timer(850)
+
+!$omp end critical
+
     END SUBROUTINE connect
 
 

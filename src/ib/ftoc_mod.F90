@@ -69,9 +69,14 @@ CONTAINS
         ! flag to specify the mode
         CHARACTER(len=1), INTENT(in) :: flag_p
 
+!$omp critical
+
         CALL ftoc_begin(ff_p, fc_p, flag_p, noflevel(ilevel), &
             igrdoflevel(1, ilevel))
         CALL ftoc_end()
+
+!$omp end critical
+
     END SUBROUTINE ftoc
 
 
