@@ -71,7 +71,7 @@ CONTAINS
             CALL zero_ghostlayers(g)
 
             DO ilevel = minlevel, maxlevel
-                CALL connect(ilevel, 2, s1=g%arr, corners=.TRUE.)
+                CALL connect(ilevel, 2, s1=g, corners=.TRUE.)
             END DO
 
             DO ilevel = minlevel+1, maxlevel
@@ -143,7 +143,6 @@ CONTAINS
         CALL get_field(rddy_f, "RDDY")
         CALL get_field(rddz_f, "RDDZ")
 
-        CALL start_timer(500)
         DO ilevel = maxlevel, minlevel, -1
             DO i = 1, nmygridslvl(ilevel)
                 igrid = mygridslvl(i, ilevel)
@@ -176,13 +175,12 @@ CONTAINS
             END DO
         END DO
 
-        DO ilevel = maxlevel, minlevel, -1
-            CALL connect(ilevel, 1, s1=g_f%arr)
+        DO ilevel = minlevel, maxlevel
             CALL parent(ilevel, s1=g_f)
             CALL bound%bound(ilevel, g_f)
+            CALL connect(ilevel, 1, s1=g_f)
         END DO
 
-        CALL start_timer(502)
         DO ilevel = minlevel, maxlevel
             DO i = 1, nmygridslvl(ilevel)
                 igrid = mygridslvl(i, ilevel)
@@ -192,13 +190,10 @@ CONTAINS
                 CALL setginbody(kk, jj, ii, bp, g)
             END DO
         END DO
-        CALL stop_timer(502)
 
-        DO ilevel = minlevel, maxlevel
-            CALL connect(ilevel, 1, s1=g_f%arr)
-        END DO
-
-        CALL stop_timer(500)
+        ! TSTLE4 access corner values of viscosity such as (k, j+1, i+1),
+        ! therefore connect with corners
+        CALL connect(layers=1, s1=g_f, corners=.TRUE.)
     END SUBROUTINE lesmodel_gc
 
 

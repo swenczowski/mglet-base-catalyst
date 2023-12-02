@@ -1,7 +1,7 @@
 MODULE calcauavaw_mod
     USE core_mod, ONLY: realk, intk, errr, minlevel, maxlevel, nmygrids, &
         mygrids, nmygridslvl, mygridslvl, get_mgdims, get_ip3, get_ip3n, &
-        get_fieldptr, idim3d
+        get_fieldptr, field_t, connect
     USE blockcheck_mod, ONLY: blockcheck_grid
     USE calcfacearea_mod, ONLY: calcfacedata, calcwallfacecenter, &
         calcwallfacecenterrescue
@@ -19,26 +19,20 @@ MODULE calcauavaw_mod
 CONTAINS
     SUBROUTINE calcauavaw(topol, ntrimax, triau, triav, triaw, &
             knoten, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
-            icells, icellspointer, ncellstot, xpsw, &
-            yus, zus, xvs, zvs, xws, yws)
+            icells, icellspointer, xpsw, yus, zus, xvs, zvs, xws, yws)
         ! Subroutine arguments
         TYPE(topol_t), INTENT(in) :: topol
         INTEGER(intk), INTENT(in) :: ntrimax
-        INTEGER(intk), INTENT(in) :: triau(ntrimax*idim3d), &
-            triav(ntrimax*idim3d), triaw(ntrimax*idim3d)
-        REAL(realk), INTENT(in) :: knoten(idim3d)
-        REAL(realk), INTENT(inout) :: kanteu(idim3d), kantev(idim3d), &
-            kantew(idim3d)
-        INTEGER(intk), INTENT(in) :: bzelltyp(idim3d)
-        REAL(realk), INTENT(out) :: au(idim3d), av(idim3d), &
-            aw(idim3d)
-        INTEGER(intk), INTENT(in) :: icells(:)
-        INTEGER(intk), INTENT(in) :: icellspointer(:)
-        INTEGER(intk), INTENT(in) :: ncellstot
-        REAL(realk), INTENT(out) :: xpsw(3, ncellstot)
-        REAL(realk), INTENT(out), OPTIONAL :: yus(idim3d), &
-            zus(idim3d), xvs(idim3d), zvs(idim3d), &
-            xws(idim3d), yws(idim3d)
+        INTEGER(intk), INTENT(in) :: triau(*), triav(*), triaw(*)
+        TYPE(field_t), INTENT(in) :: knoten
+        TYPE(field_t), INTENT(inout) :: kanteu, kantev, kantew
+        INTEGER(intk), INTENT(in) :: bzelltyp(*)
+        TYPE(field_t), INTENT(inout) :: au, av, aw
+        INTEGER(intk), INTENT(in), OPTIONAL :: icells(:)
+        INTEGER(intk), INTENT(in), OPTIONAL :: icellspointer(:)
+        REAL(realk), INTENT(out), CONTIGUOUS, OPTIONAL :: xpsw(:, :)
+        REAL(realk), INTENT(out), OPTIONAL :: yus(*), zus(*), xvs(*), zvs(*), &
+            xws(*), yws(*)
 
         ! Local variables
         INTEGER(intk) :: ilevel
@@ -46,53 +40,54 @@ CONTAINS
         DO ilevel = minlevel, maxlevel
             CALL calcauavaw_level(ilevel, topol, ntrimax, triau, triav, triaw, &
                 knoten, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
-                icells, icellspointer, ncellstot, xpsw, &
-                yus, zus, xvs, zvs, xws, yws)
+                icells, icellspointer, xpsw, yus, zus, xvs, zvs, xws, yws)
         END DO
     END SUBROUTINE calcauavaw
 
 
     SUBROUTINE calcauavaw_level(ilevel, topol, ntrimax, triau, triav, triaw, &
             knoten, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
-            icells, icellspointer, ncellstot, xpsw, &
+            icells, icellspointer, xpsw, &
             yus, zus, xvs, zvs, xws, yws)
         ! Subroutine arguments
         INTEGER(intk), INTENT(in) :: ilevel
         TYPE(topol_t), INTENT(in) :: topol
         INTEGER(intk), INTENT(in) :: ntrimax
-        INTEGER(intk), INTENT(in) :: triau(ntrimax*idim3d), &
-            triav(ntrimax*idim3d), triaw(ntrimax*idim3d)
-        REAL(realk), INTENT(in) :: knoten(idim3d)
-        REAL(realk), INTENT(inout) :: kanteu(idim3d), kantev(idim3d), &
-            kantew(idim3d)
-        INTEGER(intk), INTENT(in) :: bzelltyp(idim3d)
-        REAL(realk), INTENT(out) :: au(idim3d), av(idim3d), &
-            aw(idim3d)
-        INTEGER(intk), INTENT(in) :: icells(:)
-        INTEGER(intk), INTENT(in) :: icellspointer(:)
-        INTEGER(intk), INTENT(in) :: ncellstot
-        REAL(realk), INTENT(out) :: xpsw(:, :)
-        REAL(realk), INTENT(out), OPTIONAL :: yus(idim3d), &
-            zus(idim3d), xvs(idim3d), zvs(idim3d), &
-            xws(idim3d), yws(idim3d)
+        INTEGER(intk), INTENT(in) :: triau(*), triav(*), triaw(*)
+        TYPE(field_t), INTENT(in) :: knoten
+        TYPE(field_t), INTENT(inout) :: kanteu, kantev, kantew
+        INTEGER(intk), INTENT(in) :: bzelltyp(*)
+        TYPE(field_t), INTENT(inout) :: au, av, aw
+        INTEGER(intk), INTENT(in), OPTIONAL :: icells(:)
+        INTEGER(intk), INTENT(in), OPTIONAL :: icellspointer(:)
+        REAL(realk), INTENT(out), OPTIONAL, CONTIGUOUS, TARGET :: xpsw(:, :)
+        REAL(realk), INTENT(out), OPTIONAL :: yus(*), zus(*), xvs(*), zvs(*), &
+            xws(*), yws(*)
 
         ! Local variables
         INTEGER(intk) :: i, igrid, kk, jj, ii, ip3, ip3n, ipp, ncells
         REAL(realk), POINTER, CONTIGUOUS :: xstag(:), ystag(:), zstag(:), &
             ddx(:), ddy(:), ddz(:)
-        LOGICAL :: has_opt
+        REAL(realk), POINTER, CONTIGUOUS :: xpsw_p(:, :)
+        LOGICAL :: has_yus
 
         IF (PRESENT(yus) .AND. PRESENT(zus) .AND. PRESENT(xvs) .AND. &
                 PRESENT(zvs) .AND. PRESENT(xws) .AND. PRESENT(yws)) THEN
             ! All optional arguments are present - fine!
-            has_opt = .TRUE.
+            has_yus = .TRUE.
         ELSE IF (PRESENT(yus) .OR. PRESENT(zus) .OR. PRESENT(xvs) .OR. &
                 PRESENT(zvs) .OR. PRESENT(xws) .OR. PRESENT(yws)) THEN
             ! One or more optional arguments are present but not all - wrong!
             CALL errr(__FILE__, __LINE__)
         ELSE
             ! No optional arguments
-            has_opt = .FALSE.
+            has_yus = .FALSE.
+        END IF
+
+        ! ix xpsw is present, we also need icellspointer and icells
+        IF (PRESENT(xpsw)) THEN
+            IF (.NOT. PRESENT(icellspointer)) CALL errr(__FILE__, __LINE__)
+            IF (.NOT. PRESENT(icells)) CALL errr(__FILE__, __LINE__)
         END IF
 
         DO i = 1, nmygridslvl(ilevel)
@@ -110,36 +105,44 @@ CONTAINS
             CALL get_ip3(ip3, igrid)
             CALL get_ip3n(ip3n, ntrimax, igrid)
 
-            ipp = icellspointer(igrid)
-            ncells = icells(igrid)
+            IF (PRESENT(xpsw)) THEN
+                ipp = icellspointer(igrid)
+                ncells = icells(igrid)
+                xpsw_p => xpsw(:, ipp:ipp+ncells-1)
+            ELSE
+                NULLIFY(xpsw_p)
+            END IF
 
             ! Ugly code, because I'm not allowed to do yus(ip3) if yus
             ! is not present, therefore I must do this
-            IF (has_opt) THEN
+            IF (has_yus) THEN
                 CALL calcauavaw_grid(kk, jj, ii, xstag, ystag, zstag, &
                     ddx, ddy, ddz, topol%n, topol%topol, topol%bodyid, &
                     ntrimax, triau(ip3n), triav(ip3n), triaw(ip3n), &
-                    knoten(ip3), kanteu(ip3), kantev(ip3), kantew(ip3), &
-                    bzelltyp(ip3), au(ip3), av(ip3), aw(ip3), &
-                    ncells, xpsw(:, ipp:ipp+ncells-1), &
+                    knoten%arr(ip3), kanteu%arr(ip3), kantev%arr(ip3), &
+                    kantew%arr(ip3), bzelltyp(ip3), au%arr(ip3), &
+                    av%arr(ip3), aw%arr(ip3), xpsw_p, &
                     yus(ip3), zus(ip3), xvs(ip3), zvs(ip3), xws(ip3), yws(ip3))
             ELSE
                 CALL calcauavaw_grid(kk, jj, ii, xstag, ystag, zstag, &
                     ddx, ddy, ddz, topol%n, topol%topol, topol%bodyid, &
                     ntrimax, triau(ip3n), triav(ip3n), triaw(ip3n), &
-                    knoten(ip3), kanteu(ip3), kantev(ip3), kantew(ip3), &
-                    bzelltyp(ip3), au(ip3), av(ip3), aw(ip3), &
-                    ncells, xpsw(:, ipp:ipp+ncells-1))
+                    knoten%arr(ip3), kanteu%arr(ip3), kantev%arr(ip3), &
+                    kantew%arr(ip3), bzelltyp(ip3), au%arr(ip3), av%arr(ip3), &
+                    aw%arr(ip3), xpsw_p)
             END IF
         END DO
+
+        ! Originally found on blockbp directly - now moved here becuase this is
+        ! the last spot where AU, AV, AW are touched
+        CALL connect(ilevel, 2, v1=au, v2=av, v3=aw, corners=.TRUE.)
     END SUBROUTINE calcauavaw_level
 
 
     SUBROUTINE calcauavaw_grid(kk, jj, ii, xstag, ystag, zstag, &
             ddx, ddy, ddz, ntopol, topol, topolbodyid, &
             ntrimax, triau, triav, triaw, knoten, kanteu, kantev, kantew, &
-            bzelltyp, au, av, aw, ncells, xpsw, &
-            yus, zus, xvs, zvs, xws, yws)
+            bzelltyp, au, av, aw, xpsw, yus, zus, xvs, zvs, xws, yws)
 
         ! Subroutine arguments
         INTEGER(intk), INTENT(in) :: kk, jj, ii
@@ -157,8 +160,7 @@ CONTAINS
         INTEGER(intk), INTENT(in) :: bzelltyp(kk, jj, ii)
         REAL(realk), INTENT(out) :: au(kk, jj, ii), av(kk, jj, ii), &
             aw(kk, jj, ii)
-        INTEGER(intk), INTENT(in) :: ncells
-        REAL(realk), INTENT(out) :: xpsw(3, ncells)
+        REAL(realk), INTENT(out), OPTIONAL :: xpsw(:, :)
         REAL(realk), INTENT(out), OPTIONAL :: yus(kk, jj, ii), &
             zus(kk, jj, ii), xvs(kk, jj, ii), zvs(kk, jj, ii), &
             xws(kk, jj, ii), yws(kk, jj, ii)
@@ -184,7 +186,6 @@ CONTAINS
         au = 0.0
         av = 0.0
         aw = 0.0
-        xpsw = 0.0
 
         connect = 0
         ncon = 0
@@ -297,13 +298,6 @@ CONTAINS
 
                     ELSE IF (bzelltyp(k, j, i) < 0) THEN
                         icell = -bzelltyp(k, j, i)
-
-                        IF (npoints+20 > 20) THEN
-                            WRITE(*,*) 'npoints+20 > ncells*20', npoints+20, &
-                                ncells*20
-                            WRITE(*,*) 'i, j, k', i, j, k
-                            CALL errr(__FILE__, __LINE__)
-                        END IF
 
                         CALL punktekoordinaten(k, j, i, kk, jj, ii, &
                             xstag, ystag, zstag, &
@@ -484,27 +478,34 @@ CONTAINS
                             END IF
                         END DO
 
-                        area = SQRT( &
-                            (ddz(k)*ddy(j)*(au(k, j, i)-au(k, j, i-1)))**2 &
-                            + (ddx(i)*ddz(k)*(av(k, j, i)-av(k, j-1, i)))**2 &
-                            + (ddx(i)*ddy(j)*(aw(k, j, i)-aw(k-1, j, i)))**2)
+                        IF (PRESENT(xpsw)) THEN
+                            xpsw = 0.0
 
-                        ! Referenzflaeche: Mittel der kartesischen
-                        ! Flaechen aus allen drei Richtungen.
-                        cartarea = (1.0/3.0)*(ddx(i)*ddy(j) + &
-                            ddx(i)*ddz(k) + ddz(k)*ddy(j))
+                            area = SQRT( &
+                                (ddz(k)*ddy(j)*(au(k, j, i) &
+                                - au(k, j, i-1)))**2 &
+                                + (ddx(i)*ddz(k)*(av(k, j, i)&
+                                - av(k, j-1, i)))**2 &
+                                + (ddx(i)*ddy(j)*(aw(k, j, i)&
+                                - aw(k-1, j, i)))**2)
 
-                        ! Kann vorkommen, dass Flaeche zu klein,
-                        ! dann muss Notfallnormale berechnet werden.
-                        IF (area/cartarea < maccur**2) THEN
-                            CALL calcwallfacecenterrescue(nwa, npoints, &
-                                connectwa, xx, xpsw(1, icell), &
-                                xpsw(2, icell), xpsw(3, icell))
-                        ELSE
-                            CALL calcwallfacecenter(k, j, i, nwa, npoints, &
-                                connectwa, xx, cartarea, area, &
-                                xpsw(1, icell), xpsw(2, icell), &
-                                xpsw(3, icell))
+                            ! Referenzflaeche: Mittel der kartesischen
+                            ! Flaechen aus allen drei Richtungen.
+                            cartarea = (1.0/3.0)*(ddx(i)*ddy(j) + &
+                                ddx(i)*ddz(k) + ddz(k)*ddy(j))
+
+                            ! Kann vorkommen, dass Flaeche zu klein,
+                            ! dann muss Notfallnormale berechnet werden.
+                            IF (area/cartarea < maccur**2) THEN
+                                CALL calcwallfacecenterrescue(nwa, npoints, &
+                                    connectwa, xx, xpsw(1, icell), &
+                                    xpsw(2, icell), xpsw(3, icell))
+                            ELSE
+                                CALL calcwallfacecenter(k, j, i, nwa, npoints, &
+                                    connectwa, xx, cartarea, area, &
+                                    xpsw(1, icell), xpsw(2, icell), &
+                                    xpsw(3, icell))
+                            END IF
                         END IF
                     ELSE
                         CALL errr(__FILE__, __LINE__)

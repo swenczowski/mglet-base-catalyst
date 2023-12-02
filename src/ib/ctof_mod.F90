@@ -46,14 +46,11 @@ CONTAINS
         ! field on the fine grid
         REAL(realk), TARGET, INTENT(inout) :: fc_p(:)
 
-!$omp critical
-
+        CALL start_timer(230)
         CALL ctof_begin(ff_p, fc_p, noflevel(ilevel), &
             igrdoflevel(1, ilevel))
         CALL ctof_end()
-
-!$omp end critical        
-
+        CALL stop_timer(230)
     END SUBROUTINE ctof
 
 
@@ -74,9 +71,9 @@ CONTAINS
         INTEGER(intk), INTENT(in) :: lofgrids(ngrids)
 
         ! Local variables
-        INTEGER(intk) :: i, igrid, iprocc, iprocf
+        INTEGER(intk) :: i, igrid, iprocc, iprocf, ipar
 
-        CALL start_timer(9)
+        CALL start_timer(231)
 
         IF (.NOT. isInit) THEN
             CALL errr(__FILE__, __LINE__)
@@ -96,13 +93,14 @@ CONTAINS
         ! Make all Recv-calls
         DO i = 1, ngrids
             igrid = lofgrids(i)
-            IF (iparent(igrid) /= 0 ) THEN
+            ipar = iparent(igrid)
+            IF (ipar /= 0 ) THEN
                 iprocf = idprocofgrd(igrid)
-                iprocc = idprocofgrd(iparent(igrid))
+                iprocc = idprocofgrd(ipar)
 
                 IF (myid == iprocf) THEN
                     nRecv = nRecv + 1
-                    CALL prolong_recv(igrid, iparent(igrid))
+                    CALL prolong_recv(igrid, ipar)
                     recvGrids(nRecv) = igrid
                 END IF
             END IF
@@ -111,18 +109,19 @@ CONTAINS
         ! Make all Send-calls
         DO i = 1, ngrids
             igrid = lofgrids(i)
-            IF (iparent(igrid) /= 0 ) THEN
+            ipar = iparent(igrid)
+            IF (ipar /= 0 ) THEN
                 iprocf = idprocofgrd(igrid)
-                iprocc = idprocofgrd(iparent(igrid))
+                iprocc = idprocofgrd(ipar)
 
                 IF (myid == iprocc) THEN
                     nSend = nSend + 1
-                    CALL prolong_send(igrid, iparent(igrid))
+                    CALL prolong_send(igrid, ipar)
                 END IF
             END IF
         END DO
 
-        CALL stop_timer(9)
+        CALL stop_timer(231)
     END SUBROUTINE ctof_begin
 
 
@@ -144,7 +143,7 @@ CONTAINS
         ! Local variables
         INTEGER(int32) :: idx
 
-        CALL start_timer(10)
+        CALL start_timer(232)
 
         IF (.NOT. in_progress) THEN
             CALL errr(__FILE__, __LINE__)
@@ -176,7 +175,7 @@ CONTAINS
         NULLIFY(fc)
         in_progress = .FALSE.
 
-        CALL stop_timer(10)
+        CALL stop_timer(232)
     END SUBROUTINE ctof_end
 
 
@@ -251,10 +250,11 @@ CONTAINS
     ! Initialize arrays and data types
     SUBROUTINE init_ctof()
         ! Local variables
-        INTEGER :: igrid, iprocc, iprocf
+        INTEGER :: igrid, iprocc, iprocf, ipar
 
-        CALL set_timer(9, "CTOF_INIT")
-        CALL set_timer(10, "CTOF_FINISH")
+        CALL set_timer(230, "CTOF")
+        CALL set_timer(231, "CTOF_BEGIN")
+        CALL set_timer(232, "CTOF_END")
 
         IF (.NOT. isInit) THEN
             ALLOCATE(sendReqs(nMyGrids*maxChilds))
@@ -272,9 +272,10 @@ CONTAINS
 
         ! Make all Send- and Recv-types
         DO igrid = 1, ngrid
-            IF (iparent(igrid) /= 0 ) THEN
+            ipar = iparent(igrid)
+            IF (ipar /= 0 ) THEN
                 iprocf = idprocofgrd(igrid)
-                iprocc = idprocofgrd(iparent(igrid))
+                iprocc = idprocofgrd(ipar)
 
                 IF (myid == iprocf) THEN
                     nRecv = nRecv + 1
@@ -287,7 +288,7 @@ CONTAINS
                         CALL errr(__FILE__, __LINE__)
                     END IF
 
-                    CALL create_sendtype(igrid, iparent(igrid))
+                    CALL create_sendtype(igrid, ipar)
                 END IF
             END IF
         END DO

@@ -40,46 +40,48 @@ CONTAINS
         CALL init_wernerwengle()
         CALL init_lesmodel()
 
+        ! Werner wengle and LES models are often used by other models (scalar)
+        ! even when no flow is solved.
+        IF (.NOT. solve_flow) RETURN
+
         ! These sould only be needed when flow is actually solved
-        IF (solve_flow) THEN
-            CALL set_timer(300, "FLOW")
-            CALL set_timer(310, "FLOW_TSTLE4")
-            CALL set_timer(320, "FLOW_MGPOISL")
-            CALL set_timer(321, "FLOW_MGPOISIT")
-            CALL set_timer(330, "FLOW_LESMODEL")
-            CALL set_timer(340, "FLOW_SETIBVALUES")
-            CALL set_timer(341, "FLOW_GETIBVALUES")
-            CALL set_timer(342, "FLOW_SETPOINTVALUES")
-            CALL set_timer(350, "FLOW_ITINFO")
-            CALL set_timer(360, "FLOW_BOUSSINESQTERM")
+        CALL set_timer(300, "FLOW")
+        CALL set_timer(310, "FLOW_TSTLE4")
+        CALL set_timer(320, "FLOW_MGPOISL")
+        CALL set_timer(321, "FLOW_MGPOISIT")
+        CALL set_timer(330, "FLOW_LESMODEL")
+        CALL set_timer(340, "FLOW_SETIBVALUES")
+        CALL set_timer(341, "FLOW_GETIBVALUES")
+        CALL set_timer(342, "FLOW_SETPOINTVALUES")
+        CALL set_timer(350, "FLOW_ITINFO")
+        CALL set_timer(360, "FLOW_BOUSSINESQTERM")
 
-            CALL init_pressuresolver()
-            CALL init_boussinesqterm()
-            CALL init_itinfo(dcont)
+        CALL init_pressuresolver()
+        CALL init_boussinesqterm()
+        CALL init_itinfo(dcont)
 
-            ! Need to call this here - cannot be in flowcore because that
-            ! create a circular dependency
-            SELECT TYPE(ib)
-            TYPE IS (gc_t)
-                CALL create_flowstencils(ib)
+        ! Need to call this here - cannot be in flowcore because that
+        ! create a circular dependency
+        SELECT TYPE(ib)
+        TYPE IS (gc_t)
+            CALL create_flowstencils(ib)
 
-                CALL set_field("PWU", istag=1, buffers=.TRUE.)
-                CALL set_field("PWV", jstag=1, buffers=.TRUE.)
-                CALL set_field("PWW", kstag=1, buffers=.TRUE.)
+            CALL set_field("PWU", istag=1, buffers=.TRUE.)
+            CALL set_field("PWV", jstag=1, buffers=.TRUE.)
+            CALL set_field("PWW", kstag=1, buffers=.TRUE.)
 
-                CALL get_field(pwu, "PWU")
-                CALL get_field(pwv, "PWV")
-                CALL get_field(pww, "PWW")
-                CALL get_field(u, "U")
-                CALL get_field(v, "V")
-                CALL get_field(w, "W")
-                CALL setpointvalues(pwu, pwv, pww, u, v, w, .TRUE.)
-                CALL setibvalues(u, v, w)
+            CALL get_field(pwu, "PWU")
+            CALL get_field(pwv, "PWV")
+            CALL get_field(pww, "PWW")
+            CALL get_field(u, "U")
+            CALL get_field(v, "V")
+            CALL get_field(w, "W")
+            CALL setpointvalues(pwu, pwv, pww, u, v, w, .TRUE.)
+            CALL setibvalues(u, v, w)
 
-                CALL get_field(sdiv, "SDIV")
-                CALL setsdivfield(sdiv)
-            END SELECT
-        END IF
+            CALL get_field(sdiv, "SDIV")
+            CALL setsdivfield(sdiv)
+        END SELECT
     END SUBROUTINE init_flow
 
 
@@ -115,57 +117,50 @@ CONTAINS
 
     SUBROUTINE init_uvwp()
         USE bound_flow_mod
-        USE core_mod
+        USE core_mod, ONLY: get_field, field_t, intk, minlevel, maxlevel, &
+            connect, zero_ghostlayers
         USE ib_mod
         USE setboundarybuffers_mod, ONLY: setboundarybuffers
 
-        TYPE(field_t), POINTER :: u_f, v_f, w_f, p_f
-        REAL(realk), POINTER, CONTIGUOUS :: u(:), v(:), w(:), p(:)
+        TYPE(field_t), POINTER :: u, v, w, p
         INTEGER(intk) :: ilevel
 
-        CALL get_field(u_f, "U")
-        CALL get_field(v_f, "V")
-        CALL get_field(w_f, "W")
-        CALL get_field(p_f, "P")
-
-        ! Associate pinters
-        u => u_f%arr
-        v => v_f%arr
-        w => w_f%arr
-        p => p_f%arr
+        CALL get_field(u, "U")
+        CALL get_field(v, "V")
+        CALL get_field(w, "W")
+        CALL get_field(p, "P")
 
         ! Set inflow buffers for FIX bc's
         DO ilevel = minlevel, maxlevel
-            CALL setboundarybuffers%bound(ilevel, u_f, v_f, w_f, &
-                timeph=0.0_realk)
+            CALL setboundarybuffers%bound(ilevel, u, v, w, timeph=0.0_realk)
         END DO
 
         ! Set initial condition
         IF (uinf_is_expr) THEN
-            CALL init_uvw_expr(u_f, v_f, w_f)
+            CALL init_uvw_expr(u, v, w)
         ELSE
-            CALL init_uvw_uinf(u_f, v_f, w_f)
+            CALL init_uvw_uinf(u, v, w)
         END IF
-        p = 0.0
+        p = 0.0_realk
 
-        CALL zero_ghostlayers(u_f)
-        CALL zero_ghostlayers(v_f)
-        CALL zero_ghostlayers(w_f)
+        CALL zero_ghostlayers(u)
+        CALL zero_ghostlayers(v)
+        CALL zero_ghostlayers(w)
 
         DO ilevel = minlevel, maxlevel
             CALL connect(ilevel, 2, u, v, w, p, corners=.TRUE.)
         END DO
 
         DO ilevel = minlevel+1, maxlevel
-            CALL parent(ilevel, u_f, v_f, w_f, p_f)
-            CALL bound_flow%bound(ilevel, u_f, v_f, w_f, p_f)
+            CALL parent(ilevel, u, v, w, p)
+            CALL bound_flow%bound(ilevel, u, v, w, p)
         END DO
 
         DO ilevel = maxlevel, minlevel+1, -1
-            CALL ftoc(ilevel, u, u, 'U')
-            CALL ftoc(ilevel, v, v, 'V')
-            CALL ftoc(ilevel, w, w, 'W')
-            CALL ftoc(ilevel, p, p, 'P')
+            CALL ftoc(ilevel, u%arr, u%arr, 'U')
+            CALL ftoc(ilevel, v%arr, v%arr, 'V')
+            CALL ftoc(ilevel, w%arr, w%arr, 'W')
+            CALL ftoc(ilevel, p%arr, p%arr, 'P')
         END DO
     END SUBROUTINE init_uvwp
 

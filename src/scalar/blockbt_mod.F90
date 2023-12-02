@@ -42,7 +42,7 @@ CONTAINS
         END DO
 
         DO ilevel = minlevel, maxlevel
-            CALL connect(ilevel, 2, s1=bt_f%arr, corners=.TRUE.)
+            CALL connect(ilevel, 2, s1=bt_f, corners=.TRUE.)
         END DO
 
         ! Opening the cells near the parent boundary where the coarse grid
@@ -63,7 +63,7 @@ CONTAINS
                     nfro, nbac, nrgt, nlft, nbot, ntop)
             END DO
 
-            CALL connect(ilevel, 2, s1=bt_f%arr, corners=.TRUE.)
+            CALL connect(ilevel, 2, s1=bt_f, corners=.TRUE.)
         END DO
 
         CALL hilf_f%finish()

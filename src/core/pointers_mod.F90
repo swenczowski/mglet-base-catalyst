@@ -77,12 +77,14 @@ CONTAINS
         INTEGER(intk), INTENT(in) :: igrid
         INTEGER(intk), INTENT(out) :: ip3
 
+#ifdef _MGLET_DEBUG_
         IF (myid /= idprocofgrd(igrid)) THEN
             CALL errr(__FILE__, __LINE__)
         END IF
+#endif
 
         ip3 = ip3d(igrid)
-    END SUBROUTINE
+    END SUBROUTINE get_ip3
 
 
     SUBROUTINE get_ip3n(ip3n, ncomp, igrid)
@@ -95,7 +97,7 @@ CONTAINS
         END IF
 
         ip3n = ncomp*ip3d(igrid) - (ncomp-1)
-    END SUBROUTINE
+    END SUBROUTINE get_ip3n
 
 
     SUBROUTINE get_ibb(ibb, igrid)
@@ -107,7 +109,7 @@ CONTAINS
         END IF
 
         ibb = 2*ip2d(igrid) - 1
-    END SUBROUTINE
+    END SUBROUTINE get_ibb
 
 
     SUBROUTINE get_ibbn(ibbt, ncomp, igrid)
@@ -119,7 +121,7 @@ CONTAINS
         END IF
 
         ibbt = 2*ncomp*ip2d(igrid) - (2*ncomp-1)
-    END SUBROUTINE
+    END SUBROUTINE get_ibbn
 
 
     SUBROUTINE get_ip1(ip1, igrid)
@@ -131,7 +133,7 @@ CONTAINS
         END IF
 
         ip1 = ip1d(igrid)
-    END SUBROUTINE
+    END SUBROUTINE get_ip1
 
 
     SUBROUTINE get_len3(len, igrid)
@@ -146,5 +148,5 @@ CONTAINS
 
         CALL get_mgdims(kk, jj, ii, igrid)
         len = kk*jj*ii
-    END SUBROUTINE
+    END SUBROUTINE get_len3
 END MODULE pointers_mod

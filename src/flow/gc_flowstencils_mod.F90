@@ -130,7 +130,7 @@ CONTAINS
         DEALLOCATE(woldsol)
         DEALLOCATE(wpoldsolvel)
         DEALLOCATE(woldsolvel)
-    END SUBROUTINE
+    END SUBROUTINE finish_flowstencils
 
 
     SUBROUTINE createstencils_level(ilevel, bp, bu, bv, bw, au, av, aw, &
@@ -1356,8 +1356,7 @@ CONTAINS
         END IF
 
         DO ilevel = minlevel, maxlevel
-            CALL connect(ilevel, 1, v1=pwu%arr, v2=pwv%arr, v3=pww%arr, &
-                geom=.TRUE.)
+            CALL connect(ilevel, 1, v1=pwu, v2=pwv, v3=pww, geom=.TRUE.)
             CALL bound_flow%bound(ilevel, pwu, pwv, pww)
         END DO
 
@@ -1405,19 +1404,17 @@ CONTAINS
         DO ilevel = minlevel, maxlevel
             CALL parent(ilevel, u, v, w)
             CALL bound_flow%bound(ilevel, u, v, w)
-            CALL connect(ilevel, 2, v1=u%arr, v2=v%arr, v3=w%arr)
+            CALL connect(ilevel, 2, v1=u, v2=v, v3=w)
 
             CALL setibvalues_level(ilevel, 'F', u, v, w)
             CALL bound_flow%bound(ilevel, u, v, w)
 
-            CALL connect(ilevel, 1, v1=u%arr, v2=v%arr, v3=w%arr, &
-                corners=.TRUE.)
+            CALL connect(ilevel, 1, v1=u, v2=v, v3=w, corners=.TRUE.)
 
             CALL setibvalues_level(ilevel, 'C', u, v, w)
             CALL bound_flow%bound(ilevel, u, v, w)
 
-            CALL connect(ilevel, 1, v1=u%arr, v2=v%arr, v3=w%arr, &
-                corners=.TRUE.)
+            CALL connect(ilevel, 1, v1=u, v2=v, v3=w, corners=.TRUE.)
         END DO
 
         DO ilevel = maxlevel, minlevel, -1
@@ -1428,11 +1425,11 @@ CONTAINS
 
                 IF (ilevel > minlevel) THEN
                     IF (irepeat == 1) THEN
-                        CALL connect(ilevel-1, 1, v1=u%arr, v2=v%arr, &
-                            v3=w%arr, normal=.TRUE., forward=-1, ityp='Y')
+                        CALL connect(ilevel-1, 1, v1=u, v2=v, &
+                            v3=w, normal=.TRUE., forward=-1, ityp='Y')
                     ELSE IF (irepeat == 2) THEN
-                        CALL connect(ilevel-1, 1, v1=u%arr, v2=v%arr, &
-                            v3=w%arr, corners=.TRUE.)
+                        CALL connect(ilevel-1, 1, v1=u, v2=v, &
+                            v3=w, corners=.TRUE.)
                     ELSE
                         CALL errr(__FILE__, __LINE__)
                     END IF
@@ -1444,13 +1441,11 @@ CONTAINS
             CALL parent(ilevel, u, v, w)
             CALL bound_flow%bound(ilevel, u, v, w)
 
-            CALL connect(ilevel, 1, v1=u%arr, v2=v%arr, v3=w%arr, &
-                corners=.TRUE.)
+            CALL connect(ilevel, 1, v1=u, v2=v, v3=w, corners=.TRUE.)
 
             CALL setibvalues_level(ilevel, 'C', u, v, w)
             CALL bound_flow%bound(ilevel, u, v, w)
-            CALL connect(ilevel, 1, v1=u%arr, v2=v%arr, v3=w%arr, &
-                corners=.TRUE.)
+            CALL connect(ilevel, 1, v1=u, v2=v, v3=w, corners=.TRUE.)
 
             ! The computed fluxes are saved
             CALL setibvalues_level(ilevel, 'S', u, v, w)

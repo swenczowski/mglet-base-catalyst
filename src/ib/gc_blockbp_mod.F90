@@ -35,7 +35,7 @@ MODULE gc_blockbp_mod
         PROCEDURE :: blockbp
     END TYPE gc_blockbp_t
 
-    PUBLIC :: gc_blockbp_t, list_to_field
+    PUBLIC :: gc_blockbp_t, list_to_field, blockluecken_closetoboundary
 
 CONTAINS
     SUBROUTINE blockbp(this, icells, icellspointer, stencils)
@@ -45,20 +45,19 @@ CONTAINS
         INTEGER(intk), INTENT(inout) :: icellspointer(:)
         TYPE(gc_stencils_t), INTENT(inout) :: stencils
 
+        ! Local variables
         INTEGER(intk), PARAMETER :: ntrimax = 2
-        INTEGER(intk) :: ncells, ilevel
+        INTEGER(intk) :: ncells
 
         INTEGER(intk), ALLOCATABLE :: triau(:), triav(:), triaw(:), bzelltyp(:)
-        REAL(realk), ALLOCATABLE :: kanteu(:), kantev(:), kantew(:)
         REAL(realk), ALLOCATABLE :: xpsw(:, :), ucell(:, :)
         INTEGER(intk), ALLOCATABLE :: bodyid(:)
         REAL(realk), ALLOCATABLE :: velocity(:, :)
 
-        REAL(realk), POINTER, CONTIGUOUS :: bu(:), bv(:), bw(:)
-        REAL(realk), POINTER, CONTIGUOUS :: au(:), av(:), aw(:)
-        TYPE(field_t), POINTER :: bp
+        TYPE(field_t), POINTER :: bp, bu, bv, bw
         TYPE(field_t) :: knoten
-        TYPE(field_t), TARGET :: au_f, av_f, aw_f
+        TYPE(field_t) :: au, av, aw
+        TYPE(field_t) :: kanteu, kantev, kantew
 
         ! Read configuration etc.
         CALL this%init()
@@ -70,21 +69,18 @@ CONTAINS
         icells = 0
         icellspointer = 0
 
-        ALLOCATE(kanteu(idim3d))
-        ALLOCATE(kantev(idim3d))
-        ALLOCATE(kantew(idim3d))
         ALLOCATE(triau(ntrimax*idim3d))
         ALLOCATE(triav(ntrimax*idim3d))
         ALLOCATE(triaw(ntrimax*idim3d))
         ALLOCATE(bzelltyp(idim3d))
 
-        CALL au_f%init("AU")
-        CALL av_f%init("AV")
-        CALL aw_f%init("AW")
+        CALL kanteu%init("KANTEU", jstag=1, kstag=1)
+        CALL kantev%init("KANTEV", istag=1, kstag=1)
+        CALL kantew%init("KANTEW", istag=1, jstag=1)
 
-        au => au_f%arr
-        av => av_f%arr
-        aw => aw_f%arr
+        CALL au%init("AU", istag=1)
+        CALL av%init("AV", jstag=1)
+        CALL aw%init("AW", kstag=1)
 
         ! Important with proper staggering for parent to work
         CALL knoten%init("KNOTEN", istag=1, jstag=1, kstag=1)
@@ -96,7 +92,7 @@ CONTAINS
 
         CALL cutcorner(this%topol, ntrimax, kanteu, kantev, &
             kantew, triau, triav, triaw)
-        CALL blocknodes(kanteu, kantev, kantew, knoten%arr)
+        CALL blocknodes(kanteu, kantev, kantew, knoten)
 
         IF (myid == 0) THEN
            WRITE (*,'("BLOCKING: ", A40, ", WTIME:", F16.3)') &
@@ -110,7 +106,7 @@ CONTAINS
                WRITE (*,'("BLOCKING: ", A40, ", WTIME:", F16.3)') &
                    'FILLFOLLOWER', MPI_Wtime() - this%time0
             END IF
-            CALL fillfollower(knoten%arr, this%nofluidpoints)
+            CALL fillfollower(knoten, this%nofluidpoints)
         END IF
 
         IF (myid == 0) THEN
@@ -118,34 +114,34 @@ CONTAINS
                'FINISHING INTERSECTED CORNERS', MPI_Wtime() - this%time0
         END IF
 
-        CALL freepressure(kanteu, kantev, kantew, knoten%arr)
+        CALL freepressure(kanteu, kantev, kantew, knoten)
 
-        CALL freekante(this%topol, ntrimax, knoten%arr, kanteu, kantev, &
+        CALL freekante(this%topol, ntrimax, knoten, kanteu, kantev, &
             kantew, triau, triav, triaw)
 
-        CALL blockcheck(kanteu, kantev, kantew, knoten%arr, 0)
+        CALL blockcheck(kanteu, kantev, kantew, knoten, 0)
 
-        CALL checkzelle(this%topol, ntrimax, knoten%arr, kanteu, kantev, &
+        CALL checkzelle(this%topol, ntrimax, knoten, kanteu, kantev, &
             kantew, triau, triav, triaw)
 
-        CALL zelltyp(knoten%arr, bzelltyp, icells)
+        CALL zelltyp(knoten, bzelltyp, icells)
         CALL this%set_icellspointer(icells, icellspointer)
 
-        CALL get_fieldptr(bu, "BU")
-        CALL get_fieldptr(bv, "BV")
-        CALL get_fieldptr(bw, "BW")
-        CALL blockface(knoten%arr, bu, bv, bw)
+        CALL get_field(bu, "BU")
+        CALL get_field(bv, "BV")
+        CALL get_field(bw, "BW")
+        CALL blockface(knoten, bu, bv, bw)
 
         ncells = SUM(icells)
         ALLOCATE(xpsw(3, ncells))
         CALL calcauavaw(this%topol, ntrimax, triau, triav, triaw, &
-            knoten%arr, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
-            icells, icellspointer, ncells, xpsw)
+            knoten, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
+            icells, icellspointer, xpsw)
 
         CALL openbubvbw(au, av, aw, bu, bv, bw)
 
         CALL get_field(bp, "BP")
-        CALL blockbpfeld(bu, bv, bw, bp%arr)
+        CALL blockbpfeld(bu, bv, bw, bp)
 
         CALL blockluecken_closetoboundary(bp)
 
@@ -155,18 +151,7 @@ CONTAINS
         END IF
 
         CALL totwasser(this%fluidpoints, bp)
-        CALL bubvbw(bp%arr, bu, bv, bw)
-
-        DO ilevel = minlevel, maxlevel
-            ! TODO: Move to calcauavaw - last position where AU, AV, AW are
-            ! modified
-            CALL connect(ilevel, 2, v1=au, v2=av, v3=aw, corners=.TRUE.)
-
-            ! TODO: Move to bubvbw - last position where BU, BV, BW are
-            ! modified
-            CALL connect(ilevel, 2, v1=bu, v2=bv, v3=bw, s1=bp%arr, &
-                corners=.TRUE.)
-        END DO
+        CALL bubvbw(bp, bu, bv, bw)
 
         ! BP field is now finished
         IF (myid == 0) THEN
@@ -175,7 +160,7 @@ CONTAINS
         END IF
 
         CALL finishknotenbezelltyp(this%topol, ntrimax, triau, triav, triaw, &
-            bzelltyp, bp%arr, knoten%arr, kanteu, kantev, kantew, icells)
+            bzelltyp, bp, knoten, kanteu, kantev, kantew, icells)
         CALL this%set_icellspointer(icells, icellspointer)
 
         ! Re-allocate storage
@@ -184,28 +169,21 @@ CONTAINS
         ALLOCATE(xpsw(3, ncells))
 
         CALL calcauavaw(this%topol, ntrimax, triau, triav, triaw, &
-            knoten%arr, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
-            icells, icellspointer, ncells, xpsw)
+            knoten, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
+            icells, icellspointer, xpsw)
 
         CALL this%read_velocity(velocity)
         ALLOCATE(ucell(3, ncells))
         ALLOCATE(bodyid(ncells))
 
         CALL calcnormals(velocity, this%topol, ntrimax, triau, triav, triaw, &
-            knoten%arr, kanteu, kantev, kantew, bzelltyp, au, av, aw, &
-            icells, icellspointer, ncells, bodyid, ucell, &
-            stencils, .TRUE.)
-
-        DO ilevel = minlevel, maxlevel
-            ! TODO: Move to calcauavaw - last position where AU, AV, AW are
-            ! modified
-            CALL connect(ilevel, 2, v1=au, v2=av, v3=aw, corners=.TRUE.)
-        END DO
+            knoten, kanteu, kantev, kantew, bzelltyp, au, av, aw, icells, &
+            icellspointer, ncells, bodyid, ucell, stencils, .TRUE.)
 
         ! Deallocate fields that are no longer needed
-        DEALLOCATE(kanteu)
-        DEALLOCATE(kantev)
-        DEALLOCATE(kantew)
+        CALL kanteu%finish()
+        CALL kantev%finish()
+        CALL kantew%finish()
         DEALLOCATE(triau)
         DEALLOCATE(triav)
         DEALLOCATE(triaw)
@@ -234,9 +212,9 @@ CONTAINS
         DEALLOCATE(bodyid)
         DEALLOCATE(bzelltyp)
 
-        CALL au_f%finish()
-        CALL av_f%finish()
-        CALL aw_f%finish()
+        CALL au%finish()
+        CALL av%finish()
+        CALL aw%finish()
 
         IF (myid == 0) THEN
            WRITE (*,'("BLOCKING: ", A40, ", WTIME:", F16.3)') &
@@ -265,7 +243,7 @@ CONTAINS
         ! TODO: change - variable loop iterations and check for convergence
         DO iloop = 1, 3
             DO ilevel = minlevel, maxlevel
-                CALL connect(ilevel, 2, s1=bp%arr)
+                CALL connect(ilevel, 2, s1=bp)
                 CALL parent(ilevel, s1=bp)
 
                 DO i = 1, nmygridslvl(ilevel)
@@ -347,7 +325,7 @@ CONTAINS
 
         ! Connect
         DO ilevel = minlevel, maxlevel
-            CALL connect(ilevel, 2, s1=bodyid_3d_f%arr, corners=.TRUE.)
+            CALL connect(ilevel, 2, s1=bodyid_3d_f, corners=.TRUE.)
         END DO
 
         ! Copy back to list
@@ -368,7 +346,7 @@ CONTAINS
         END DO
 
         CALL bodyid_3d_f%finish()
-    END SUBROUTINE
+    END SUBROUTINE update_bodyid
 
 
     SUBROUTINE list_to_field(kk, jj, ii, bzelltyp, list, field)

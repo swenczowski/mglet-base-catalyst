@@ -69,14 +69,11 @@ CONTAINS
         ! flag to specify the mode
         CHARACTER(len=1), INTENT(in) :: flag_p
 
-!$omp critical
-
+        CALL start_timer(220)
         CALL ftoc_begin(ff_p, fc_p, flag_p, noflevel(ilevel), &
             igrdoflevel(1, ilevel))
         CALL ftoc_end()
-
-!$omp end critical
-
+        CALL stop_timer(220)
     END SUBROUTINE ftoc
 
 
@@ -102,9 +99,9 @@ CONTAINS
         INTEGER(intk), INTENT(in) :: lofgrids(ngrids)
 
         ! Local variables
-        INTEGER(intk) :: i, igrid, iprocc, iprocf
+        INTEGER(intk) :: i, igrid, iprocc, iprocf, ipar
 
-        CALL start_timer(17)
+        CALL start_timer(221)
 
         IF (.NOT. is_init) THEN
             CALL errr(__FILE__, __LINE__)
@@ -130,9 +127,10 @@ CONTAINS
         ! Make all Recv-calls
         DO i = 1, ngrids
             igrid = lofgrids(i)
-            IF (iparent(igrid) /= 0) THEN
+            ipar = iparent(igrid)
+            IF (ipar /= 0) THEN
                 iprocf = idprocofgrd(igrid)
-                iprocc = idprocofgrd(iparent(igrid))
+                iprocc = idprocofgrd(ipar)
 
                 IF (myid == iprocc) THEN
                     nRecv = nRecv + 1
@@ -145,18 +143,19 @@ CONTAINS
         ! Make all Send-calls
         DO i = 1, ngrids
             igrid = lofgrids(i)
-            IF (iparent(igrid) /= 0 ) THEN
+            ipar = iparent(igrid)
+            IF (ipar /= 0 ) THEN
                 iprocf = idprocofgrd(igrid)
-                iprocc = idprocofgrd(iparent(igrid))
+                iprocc = idprocofgrd(ipar)
 
                 IF (myid == iprocf) THEN
                     nSend = nSend + 1
-                    CALL restrict_send(igrid, iparent(igrid))
+                    CALL restrict_send(igrid, ipar)
                 END IF
             END IF
         END DO
 
-        CALL stop_timer(17)
+        CALL stop_timer(221)
     END SUBROUTINE ftoc_begin
 
 
@@ -168,7 +167,7 @@ CONTAINS
 
         INTEGER(int32) :: idx
 
-        CALL start_timer(18)
+        CALL start_timer(222)
 
         IF (.NOT. in_progress) THEN
             CALL errr(__FILE__, __LINE__)
@@ -195,7 +194,7 @@ CONTAINS
         flag = ' '
         in_progress = .FALSE.
 
-        CALL stop_timer(18)
+        CALL stop_timer(222)
     END SUBROUTINE ftoc_end
 
 
@@ -287,10 +286,11 @@ CONTAINS
         ! Function to initialize arrays and data types.
         ! After successful execution, the module varaible "is_init" is set to
         ! true
-        INTEGER :: igrid, iprocc
+        INTEGER :: igrid, iprocc, ipar
 
-        CALL set_timer(17, "CTOF_INIT")
-        CALL set_timer(18, "CTOF_FINISH")
+        CALL set_timer(220, "FTOC")
+        CALL set_timer(221, "FTOC_BEGIN")
+        CALL set_timer(222, "FTOC_END")
 
         IF (.NOT. is_init) THEN
             ALLOCATE(sendReqs(nMyGrids))
@@ -304,8 +304,9 @@ CONTAINS
 
         ! Make all Send- and Recv-types
         DO igrid = 1, ngrid
-            IF (iparent(igrid) /= 0 ) THEN
-                iprocc = idprocofgrd(iparent(igrid))
+            ipar = iparent(igrid)
+            IF (ipar /= 0 ) THEN
+                iprocc = idprocofgrd(ipar)
 
                 IF (myid == iprocc) THEN
                     nRecv = nRecv + 1

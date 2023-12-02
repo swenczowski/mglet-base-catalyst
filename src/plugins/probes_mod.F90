@@ -186,7 +186,7 @@ CONTAINS
         DO iarr = 1, narrays
             IF (ALLOCATED(arr(iarr)%mpitype)) THEN
                 lb = LBOUND(arr(iarr)%mpitype, dim=1)
-                ub = LBOUND(arr(iarr)%mpitype, dim=1)
+                ub = UBOUND(arr(iarr)%mpitype, dim=1)
                 DO i = lb, ub
                     CALL MPI_Type_free(arr(iarr)%mpitype(i))
                 END DO
@@ -248,9 +248,12 @@ CONTAINS
         CHARACTER(len=64) :: jsonptr
         INTEGER(intk) :: i, igrid, ilevel, ipoint
         INTEGER(intk), ALLOCATABLE :: probesgrids(:)
+        INTEGER(intk) :: kk, jj, ii
+        INTEGER(intk) :: nfro, nbac, nrgt, nlft, nbot, ntop
         REAL(realk), ALLOCATABLE :: tmpcoords(:, :)
         REAL(realk) :: points(3)
         REAL(realk) :: minx, maxx, miny, maxy, minz, maxz
+        REAL(realk) :: dx, dy, dz
 
         ! Rank 0 reads the coordinates into 'tmpcoords'
         IF (myid == 0) THEN
@@ -290,6 +293,23 @@ CONTAINS
 
                 ! Find grid "bounding box"
                 CALL get_bbox(minx, maxx, miny, maxy, minz, maxz, igrid)
+                CALL get_mgdims(kk, jj, ii, igrid)
+                dx = (maxx-minx)/REAL(ii-4, kind=realk)
+                dy = (maxy-miny)/REAL(jj-4, kind=realk)
+                dz = (maxz-minz)/REAL(kk-4, kind=realk)
+
+                ! In case of a probe in vicinity of a PAR, interpolation
+                ! is difficult becuase the PAR buffers are not suited for
+                ! interpolation. Account for this by artificially shrink
+                ! the gridbox and let the probe belong to the coarse
+                ! grid instead
+                CALL get_mgbasb(nfro, nbac, nrgt, nlft, nbot, ntop, igrid)
+                IF (nfro == 8) minx = minx + dx/2.0
+                IF (nbac == 8) maxx = maxx - dx/2.0
+                IF (nrgt == 8) miny = miny + dy/2.0
+                IF (nlft == 8) maxy = maxy - dy/2.0
+                IF (nbot == 8) minz = minz + dz/2.0
+                IF (ntop == 8) maxz = maxz - dz/2.0
 
                 ! Loop over all points and see if we can find it on this grid
                 DO ipoint = 1, arr%npts
@@ -464,7 +484,7 @@ CONTAINS
             IF (arr(iarr)%grid(iprobe) /= igrid) CYCLE
 
             IF (field%istag == 0 .AND. field%jstag == 0 .AND. &
-                    field%Kstag == 0) THEN
+                    field%kstag == 0) THEN
                 CALL solintxyzgrad0(samplevar, &
                     arr(iarr)%coordinates(:, iprobe), field3d, x, y, z, bp)
             ELSE
@@ -618,32 +638,6 @@ CONTAINS
             END DO
         END IF
     END SUBROUTINE solintxyzgrad0
-
-
-    PURE SUBROUTINE get_idx(ip, coord, x)
-        ! Subroutine arguments
-        INTEGER(intk), INTENT(out) :: ip
-        REAL(realk), INTENT(in) :: coord
-        REAL(realk), INTENT(in), CONTIGUOUS :: x(:)
-
-        ! Local variables
-        INTEGER(intk) :: ii, i
-
-        ii = SIZE(x)
-
-        ip = 0
-        DO i = 3, ii-1
-            IF (x(i) >= coord) THEN
-                ip = i-1
-                EXIT
-            END IF
-        END DO
-
-        ! solintxyzgrad0 access indices from ip-1 to ip+2
-        IF (ip < 2 .OR. ip > ii-2) THEN
-            ERROR STOP
-        END IF
-    END SUBROUTINE get_idx
 
 
     SUBROUTINE init_file_and_buffers(ittot, mtstep, itint, timeph, dt, tend)
